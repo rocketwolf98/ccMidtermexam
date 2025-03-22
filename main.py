@@ -50,15 +50,12 @@ async def user_login(User: User):
               - If failed (user not found or incorrect password), appropriate message will be returned.
     """
     db = pd.read_csv("users.csv")
-    user = db['username']
-    password = db['password']
-    if user in db['username'] and db['username'] == password:
-        return {"status": "Logged in"}
-    elif user in db['username'] and db['username'] != password:
-        return {"status": "Invalid credentials"}
-    else:
-        return {"status": "No user found"}
 
+    user = User.username in db['username']
+    password = User.password in db['password']
+
+    if user and password:
+        return {"status": "Logged in"}
 
 
 
@@ -117,9 +114,9 @@ async def get_tasks(name: str):
               - If no tasks are found for the user, an empty list will be returned.
     """
     df = pd.read_csv("tasks.csv")
-    user = df.to_list(orient="records")
+    user = df.to_dict(orient="records")
     if name in user['user']:
-        return df.to_list(orient='records')
+        return df.to_dict(orient='records')
     else:
         return []
 
