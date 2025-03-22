@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import pandas as pd 
+import numpy as np
 
 from pydantic import BaseModel
 
@@ -21,6 +23,17 @@ class Task(BaseModel):
     deadline: str 
     user: str
  
+def to_users(username, password):
+    db = pd.read_csv("users.csv")
+    db.loc[len(db)] = [username, password]
+    db.to_csv("users.csv", index=False)
+    print("Saved to users")
+
+def to_tasks(task, deadline, user):
+    db = pd.read_csv("tasks.csv")
+    db.loc[len(db)] = [task, deadline, user]
+    db.to_csv("tasks.csv", index=False)
+    print("Saved to users")
 
 @app.post("/login/")
 async def user_login(User: User):
@@ -36,7 +49,17 @@ async def user_login(User: User):
               - If successful, ttasktatus will be "Logged in".
               - If failed (user not found or incorrect password), appropriate message will be returned.
     """
-    return {"status": "Logged in"}
+    db = pd.read_csv("users.csv")
+    user = db['username']
+    password = db['password']
+    if user in db['username'] and db['username'] == password:
+        return {"status": "Logged in"}
+    elif user in db['username'] and db['username'] != password:
+        return {"status": "Invalid credentials"}
+    else:
+        return {"status": "No user found"}
+
+
 
 
 @app.post("/create_user/")
@@ -52,10 +75,15 @@ async def create_user(User: User):
               - If successful, the status will be "User Created".
               - If user already exists, a relevant message will be returned.
     """
+    user = User.username
+    password = User.password
+
+    to_users(user, password)
+
     return {"status": "User Created"}
 
 @app.post("/create_task/")
-async def create_task(Task: Task):
+async def create_task(Task: Task, User: User):
     """
     Creates a new task by adding the task description, deadline, and associated user to the tasks CSV file.
 
@@ -66,6 +94,12 @@ async def create_task(Task: Task):
         dict: A response indicating whether the task was successfully created.
               - If successful, the status will be "Task Created".
     """
+    task = Task.task
+    deadline = Task.deadline
+    user = User.user
+
+    to_tasks(task, deadline, user)
+
     return {"status": "task Created"}
 
 @app.get("/get_tasks/")
@@ -82,7 +116,11 @@ async def get_tasks(name: str):
               - If tasks are found, the response will include the task details.
               - If no tasks are found for the user, an empty list will be returned.
     """
-
-
+    df = pd.read_csv("tasks.csv")
+    user = df.to_list(orient="records")
+    if name in user['user']:
+        return df.to_list(orient='records')
+    else:
+        return []
 
     return {"tasks": [ ['laba','2','a'] , ['study','6','a'] , ['code','10','a']  ] }
