@@ -35,6 +35,10 @@ def to_tasks(task, deadline, user):
     db.to_csv("tasks.csv", index=False)
     print("Saved to users")
 
+@app.get("/")
+async def get():
+    return {"message":"it works?"}
+
 @app.post("/login/")
 async def user_login(User: User):
     """
@@ -54,8 +58,12 @@ async def user_login(User: User):
     user = User.username in db['username']
     password = User.password in db['password']
 
-    if user and password:
-        return {"status": "Logged in"}
+    print(user, password)
+
+    if user and not password:
+        return {"status": "Not found"}
+    
+    return {"status":"Logged in"}
 
 
 
@@ -80,7 +88,7 @@ async def create_user(User: User):
     return {"status": "User Created"}
 
 @app.post("/create_task/")
-async def create_task(Task: Task, User: User):
+async def create_task(Task: Task):
     """
     Creates a new task by adding the task description, deadline, and associated user to the tasks CSV file.
 
@@ -93,7 +101,9 @@ async def create_task(Task: Task, User: User):
     """
     task = Task.task
     deadline = Task.deadline
-    user = User.user
+    user = Task.user
+
+    print(task, deadline, user)
 
     to_tasks(task, deadline, user)
 
@@ -114,10 +124,15 @@ async def get_tasks(name: str):
               - If no tasks are found for the user, an empty list will be returned.
     """
     df = pd.read_csv("tasks.csv")
-    user = df.to_dict(orient="records")
-    if name in user['user']:
-        return df.to_dict(orient='records')
-    else:
-        return []
+    # user = df.to_dict(orient="records")
+    # if name in user['user']:
+    #     return df.to_dict(orient='records')
+    # else:
+    #     return []
+
+    parse = df.loc[df['user']==name]
+    
+    tasks_list = parse
+    return {"tasks":tasks_list.values.tolist()}
 
     return {"tasks": [ ['laba','2','a'] , ['study','6','a'] , ['code','10','a']  ] }
