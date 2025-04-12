@@ -18,15 +18,17 @@ CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL);
-                                   """))
-
-generate_task = conn.execute(text("""
+    
 CREATE TABLE IF NOT EXISTS tasks(
     task VARCHAR(255),
     deadline DATE NOT NULL,
-    user_id SERIAL,
-    FOREIGN KEY (user_id) REFERENCES users(id);
-    ))"""))
+    username VARCHAR(255),
+    FOREIGN KEY (username) REFERENCES users(username);
+    ));
+                                   """))
+
+generate_task = conn.execute(text("""
+"""))
 app = FastAPI()
 
 app.add_middleware(
@@ -45,116 +47,67 @@ class Task(BaseModel):
     deadline: str 
     user: str
  
-def to_users(username, password):
-    db = pd.read_csv("users.csv")
-    db.loc[len(db)] = [username, password]
-    db.to_csv("users.csv", index=False)
-    print("Saved to users")
-
-def to_tasks(task, deadline, user):
-    db = pd.read_csv("tasks.csv")
-    db.loc[len(db)] = [task, deadline, user]
-    db.to_csv("tasks.csv", index=False)
-    print("Saved to users")
 
 @app.get("/")
 async def get():
     return {"message":"it works?"}
 
 @app.post("/login/")
-async def user_login(User: User):
-    """
-    Handles the user login process. The function checks if the user exists in the users CSV file.
-    If the username and password match, the user is logged in successfully.
-
-    Args:
-        User (User): The username and password provided by the user.
-
-    Returns:
-        dict: A response indicating whether the login was successful or not.
-              - If successful, ttasktatus will be "Logged in".
-              - If failed (user not found or incorrect password), appropriate message will be returned.
-    """
-    db = pd.read_csv("users.csv")
-
-    user = User.username in db['username']
-    password = User.password in db['password']
-
-    print(user, password)
-
-    if user and not password:
-        return {"status": "Not found"}
-    
-    return {"status":"Logged in"}
+async def user_login(User: User):  
+    db = conn.execute("""
+    SELECT * FROM users
+    WHERE username =:username;
+    """, username=user.username)
+    if not db.mappings().all():
+       return {"status":"User exists!"}
+    else:
+       return {"status":"User logged in!"}
 
 
 
 @app.post("/create_user/")
 async def create_user(User: User):
-    """
-    Creates a new user by adding their username and password to the users CSV file.
-
-    Args:
-        User (User): The username and password for the new user.
-
-    Returns:
-        dict: A response indicating whether the user was successfully created.
-              - If successful, the status will be "User Created".
-              - If user already exists, a relevant message will be returned.
-    """
-    user = User.username
-    password = User.password
-
-    to_users(user, password)
-
-    return {"status": "User Created"}
-
+    db = conn.execute("""
+    SELECT * FROM users
+    WHERE username =:username;
+                     """, username=user.username)
+    if not db.mappings().all():
+       return {"status":"User exists!"}
+    
+    try:
+        conn.execute("""
+        INSERT INTO users (username, password)
+        VALUES (:username, :password);""",
+        username= user.username, password= user.password)
+        conn.commit()
+    except Exception as e:
+        print(e)
+        return {"status":"Creation error!"}
+   
+   
 @app.post("/create_task/")
 async def create_task(Task: Task):
-    """
-    Creates a new task by adding the task description, deadline, and associated user to the tasks CSV file.
-
-    Args:
-        Task (Task): The task description, deadline, and associated user.
-
-    Returns:
-        dict: A response indicating whether the task was successfully created.
-              - If successful, the status will be "Task Created".
-    """
-    task = Task.task
-    deadline = Task.deadline
-    user = Task.user
-
-    print(task, deadline, user)
-
-    to_tasks(task, deadline, user)
-
-    return {"status": "task Created"}
+    db = conn.execute("""
+    SELECT * FROM users
+    WHERE username =:username;
+                     """, username=task.username)
+    if not db.mappings().all():
+       return {"status":"User does not exist!"}
+   
+    try:
+        conn.execute("""
+        INSERT INTO tasks (task, deadline, username)
+        VALUES (:task, :deadline, :username);""",
+        task= tasks.task, deadline= tasks.deadline, username = tasks.username)
+        conn.commit()
+    except Exception as e:
+        print(e)
+        return {"status":"Creation error!"}
+    
 
 @app.get("/get_tasks/")
 async def get_tasks(name: str):
 
-    """
-    Retrieves the list of tasks associated with a specific user.
-
-    Args:
-        name (str): The username for which the tasks need to be fetched.
-
-    Returns:
-        dict: A list of tasks (task description, deadline) associated with the given user.
-              - If tasks are found, the response will include the task details.
-              - If no tasks are found for the user, an empty list will be returned.
-    """
-    df = pd.read_csv("tasks.csv")
-    # user = df.to_dict(orient="records")
-    # if name in user['user']:
-    #     return df.to_dict(orient='records')
-    # else:
-    #     return []
-
-    parse = df.loc[df['user']==name]
     
-    tasks_list = parse
-    return {"tasks":tasks_list.values.tolist()}
 
     return {"tasks": [ ['laba','2','a'] , ['study','6','a'] , ['code','10','a']  ] }
