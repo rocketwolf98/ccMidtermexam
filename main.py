@@ -3,8 +3,30 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd 
 import numpy as np
 
-from pydantic import BaseModel
+from sqlalchemy import create_engine, inspect
+from sqlalchemy import text
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+conn= engine.connect()
+ins = inspect(engine)
+
+generate_users = conn.execute(text("""
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL);
+                                   """))
+
+generate_task = conn.execute(text("""
+CREATE TABLE IF NOT EXISTS tasks(
+    task VARCHAR(255),
+    deadline DATE NOT NULL,
+    user_id SERIAL,
+    FOREIGN KEY (user_id) REFERENCES users(id);
+    ))"""))
 app = FastAPI()
 
 app.add_middleware(
