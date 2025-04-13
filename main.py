@@ -10,6 +10,9 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+DATABASE_URL= os.getenv("DATABASE_URL") 
+engine = create_engine(DATABASE_URL,  client_encoding='utf8')
+
 conn= engine.connect()
 ins = inspect(engine)
 
@@ -27,8 +30,7 @@ CREATE TABLE IF NOT EXISTS tasks(
     ));
                                    """))
 
-generate_task = conn.execute(text("""
-"""))
+conn.commit()
 app = FastAPI()
 
 app.add_middleware(
@@ -45,7 +47,7 @@ class User(BaseModel):
 class Task(BaseModel):
     task: str
     deadline: str 
-    user: str
+    username: str
  
 
 @app.get("/")
@@ -53,11 +55,11 @@ async def get():
     return {"message":"it works?"}
 
 @app.post("/login/")
-async def user_login(User: User):  
+async def user_login(user: User):  
     db = conn.execute("""
     SELECT * FROM users
     WHERE username =:username;
-    """, username=user.username)
+    """, {"username":user.username})
     if not db.mappings().all():
        return {"status":"User exists!"}
     else:
@@ -66,11 +68,11 @@ async def user_login(User: User):
 
 
 @app.post("/create_user/")
-async def create_user(User: User):
+async def create_user(user: User):
     db = conn.execute("""
     SELECT * FROM users
     WHERE username =:username;
-                     """, username=user.username)
+                     """, {"username":user.username})
     if not db.mappings().all():
        return {"status":"User exists!"}
     
@@ -78,7 +80,7 @@ async def create_user(User: User):
         conn.execute("""
         INSERT INTO users (username, password)
         VALUES (:username, :password);""",
-        username= user.username, password= user.password)
+        {"username": user.username, "password":user.password})
         conn.commit()
     except Exception as e:
         print(e)
@@ -86,11 +88,11 @@ async def create_user(User: User):
    
    
 @app.post("/create_task/")
-async def create_task(Task: Task):
+async def create_task(task: Task):
     db = conn.execute("""
     SELECT * FROM users
     WHERE username =:username;
-                     """, username=task.username)
+                     """, {"username":task.username})
     if not db.mappings().all():
        return {"status":"User does not exist!"}
    
@@ -98,7 +100,7 @@ async def create_task(Task: Task):
         conn.execute("""
         INSERT INTO tasks (task, deadline, username)
         VALUES (:task, :deadline, :username);""",
-        task= tasks.task, deadline= tasks.deadline, username = tasks.username)
+        {"task":task.task, "deadline": task.deadline, "username": task.username})
         conn.commit()
     except Exception as e:
         print(e)
@@ -107,7 +109,14 @@ async def create_task(Task: Task):
 
 @app.get("/get_tasks/")
 async def get_tasks(name: str):
-
-    
+    db = conn.execute("""
+    SELECT * FROM tasks
+    WHERE username = :username;
+    """, username = tasks.username)
+    if not db.mappings().all():
+        return {"status":"User exists!"}
+    else:
+        tasks = db.mappings().all()
+        return {"tasks":tasks}
 
     return {"tasks": [ ['laba','2','a'] , ['study','6','a'] , ['code','10','a']  ] }
