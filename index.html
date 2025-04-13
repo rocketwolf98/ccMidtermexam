@@ -45,32 +45,29 @@
         console.log('heheh' + document.cookie)
         // Attach event listener to the form submit event
         document.getElementById('myForm').addEventListener('submit', function (event) {
-            event.preventDefault(); // Prevent form from refreshing the page
+    event.preventDefault(); // Prevent form refresh
 
-            const username = document.getElementById('username').value;
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
 
-            const data = {
-                'username':document.getElementById('username').value,
-                'password':document.getElementById('password').value,
+    const data = {
+        username: username,
+        password: password
+    };
 
-            }
-
-            axios.post('http://127.0.0.1:8000/login/',data)
-            .then(function (response) {
-
-                if(response.data.status == 'Logged in'){
-                    document.cookie = 'username=' + document.getElementById('username').value;
-                    window.location.replace("main.html");
-                }
-
-
-                console.log(response.data.status)
-                console.log(data)
-            })
-            .catch(function (error) {
-                console.log(error.response ? error.response.data : error.message)
-            });
-        });
+    axios.post('http://127.0.0.1:8000/login/', data)
+    .then(function (response) {
+        if (response.data.status === "User logged in!") {
+            document.cookie = "username=" + username;
+            window.location.href = "main.html";
+        } else {
+            alert(response.data.status);
+        }
+    })
+    .catch(function (error) {
+        console.log(error.response ? error.response.data : error.message);
+    });
+});
     </script>
 </body>
 </html>

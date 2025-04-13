@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd 
 import numpy as np
+from pydantic import BaseModel
+from datetime import date
 
 from sqlalchemy import create_engine, inspect
 from sqlalchemy import text
@@ -13,7 +15,12 @@ load_dotenv()
 DATABASE_URL= os.getenv("DATABASE_URL") 
 engine = create_engine(DATABASE_URL,  client_encoding='utf8')
 
-conn= engine.connect()
+try:
+    conn= engine.connect()
+except Exception as e:
+    print(f"Error connecting to database {e}")
+    raise
+
 ins = inspect(engine)
 
 generate_users = conn.execute(text("""
@@ -23,11 +30,12 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL);
     
 CREATE TABLE IF NOT EXISTS tasks(
+    id SERIAL PRIMARY KEY,
     task VARCHAR(255),
     deadline DATE NOT NULL,
     username VARCHAR(255),
-    FOREIGN KEY (username) REFERENCES users(username);
-    ));
+    FOREIGN KEY (username) REFERENCES users(username)
+    );
                                    """))
 
 conn.commit()
@@ -46,7 +54,7 @@ class User(BaseModel):
 
 class Task(BaseModel):
     task: str
-    deadline: str 
+    deadline: date 
     username: str
  
 
@@ -56,10 +64,10 @@ async def get():
 
 @app.post("/login/")
 async def user_login(user: User):  
-    db = conn.execute("""
+    db = conn.execute(text("""
     SELECT * FROM users
-    WHERE username =:username;
-    """, {"username":user.username})
+    WHERE username =:username AND password = :password;
+    """), {"username":user.username, "password":user.password})
     if not db.mappings().all():
        return {"status":"User exists!"}
     else:
@@ -69,54 +77,72 @@ async def user_login(user: User):
 
 @app.post("/create_user/")
 async def create_user(user: User):
-    db = conn.execute("""
-    SELECT * FROM users
-    WHERE username =:username;
-                     """, {"username":user.username})
-    if not db.mappings().all():
-       return {"status":"User exists!"}
+    db = conn.execute(
+        text("""
+        SELECT * FROM users
+        WHERE username = :username;
+        """),
+        {"username": user.username}
+    )
+    
+    if db.mappings().all():
+        return {"status": "User already exists!"}
     
     try:
-        conn.execute("""
-        INSERT INTO users (username, password)
-        VALUES (:username, :password);""",
-        {"username": user.username, "password":user.password})
+        conn.execute(
+            text("""
+            INSERT INTO users (username, password)
+            VALUES (:username, :password);
+            """),
+            {"username": user.username, "password": user.password}
+        )
         conn.commit()
+        return {"status": "User created successfully!"}
     except Exception as e:
         print(e)
-        return {"status":"Creation error!"}
+        return {"status": "Creation error!"}
    
    
 @app.post("/create_task/")
 async def create_task(task: Task):
-    db = conn.execute("""
-    SELECT * FROM users
-    WHERE username =:username;
-                     """, {"username":task.username})
+    db = conn.execute(
+        text("""
+        SELECT * FROM users
+        WHERE username = :username;
+        """),
+        {"username": task.username}
+    )
+    
     if not db.mappings().all():
-       return {"status":"User does not exist!"}
-   
+        return {"status": "User does not exist!"}
+    
     try:
-        conn.execute("""
-        INSERT INTO tasks (task, deadline, username)
-        VALUES (:task, :deadline, :username);""",
-        {"task":task.task, "deadline": task.deadline, "username": task.username})
+        conn.execute(
+            text("""
+            INSERT INTO tasks (task, deadline, username)
+            VALUES (:task, :deadline, :username);
+            """),
+            {"task": task.task, "deadline": task.deadline, "username": task.username}
+        )
         conn.commit()
+        return {"status": "Task created successfully!"}
     except Exception as e:
         print(e)
-        return {"status":"Creation error!"}
+        return {"status": "Task creation error!"}
     
 
 @app.get("/get_tasks/")
 async def get_tasks(name: str):
-    db = conn.execute("""
-    SELECT * FROM tasks
-    WHERE username = :username;
-    """, username = tasks.username)
-    if not db.mappings().all():
-        return {"status":"User exists!"}
-    else:
-        tasks = db.mappings().all()
-        return {"tasks":tasks}
-
-    return {"tasks": [ ['laba','2','a'] , ['study','6','a'] , ['code','10','a']  ] }
+    db = conn.execute(
+        text("""
+        SELECT task, deadline FROM tasks
+        WHERE username = :username;
+        """),
+        {"username": name}
+    )
+    
+    tasks = db.mappings().all()
+    if not tasks:
+        return {"status": "No tasks found for the user!"}
+    
+    return {"tasks": [{"task": t["task"], "deadline": t["deadline"]} for t in tasks]}
