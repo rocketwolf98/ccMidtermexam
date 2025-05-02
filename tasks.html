@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task List</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="box">
+            <h1>Tasks</h1>
+            <div id="taskList"></div>
+        </div>
+    </div>
+
+    <script>
+        function getCookie(name) {
+            let cookie = {};
+            document.cookie.split(';').forEach(function(el) {
+                let split = el.split('=');
+                cookie[split[0].trim()] = split.slice(1).join("=");
+            })
+            return cookie[name];
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString();
+        }
+
+        function displayTasks() {
+            const username = getCookie('username');
+            axios.get(`http://127.0.0.1:8000/get_tasks/?name=${username}`)
+                .then(function (response) {
+                    const taskList = document.getElementById('taskList');
+                    taskList.innerHTML = '';
+                    
+                    if (response.data.status === "No tasks found for the user!") {
+                        taskList.innerHTML = '<p>No tasks found</p>';
+                        return;
+                    }
+
+                    response.data.tasks.forEach(task => {
+                        const taskElement = document.createElement('div');
+                        taskElement.className = 'task-item';
+                        taskElement.innerHTML = `
+                            <p><strong>Task:</strong> ${task.task}</p>
+                            <p><strong>Deadline:</strong> ${formatDate(task.deadline)}</p>
+                            <hr>
+                        `;
+                        taskList.appendChild(taskElement);
+                    });
+                })
+                .catch(function (error) {
+                    console.error('Error:', error);
+                    document.getElementById('taskList').innerHTML = '<p>Error loading tasks</p>';
+                });
+        }
+
+        // Load tasks when page loads
+        displayTasks();
+    </script>
+</body>
+</html>
